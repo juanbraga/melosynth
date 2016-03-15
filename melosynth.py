@@ -354,6 +354,122 @@ def melosynth(inputfile, outputfile, fs, nHarmonics, square, useneg):
 
     logging.info('Saving wav file...')
     wavwrite(np.asarray(signal), outputfile, fs)
+    
+def melosynth_pitch(freqs, outputfile, fs, nHarmonics, square, useneg):
+    '''
+    Synthesize array with audio samples into a .wav
+
+    :parameters:
+    
+    - freqs : array
+    Array of pitch contour values.
+
+    - outputfile: str
+    Path to output wav file. If outputfile is None a file will be
+    created with the same path/name as inputfile but ending with
+    "_melosynth.wav"
+
+    - fs : int
+    Sampling frequency for the synthesized file.
+
+    - nHarmonics : int
+    Number of harmonics (including the fundamental) to use in the synthesis
+    (default is 1). As the number is increased the wave will become more
+    sawtooth-like.
+
+    - square : bool
+    When set to true, the waveform will converge to a square wave instead of
+    a sawtooth as the number of harmonics is increased.
+
+    - useneg : bool
+    By default, negative frequency values (unvoiced frames) are synthesized as
+    silence. If useneg is set to True, these frames will be synthesized using
+    their absolute values (i.e. as voiced frames).
+    '''
+
+    # Preprocess input parameters
+    fs = int(float(fs))
+    nHarmonics = int(nHarmonics)
+    if outputfile is None:
+        outputfile = "melody_melosynth.wav"
+
+    # Load pitch sequence
+    logging.info('Loading data...')
+    times = 8 * 128/44100.0 + np.arange(len(freqs)) * (128/44100.0)
+#    times = np.arange(len(freqs)) * (2048/44100.0)    
+    
+    # Preprocess pitch sequence
+    if useneg:
+        freqs = np.abs(freqs)
+    else:
+        freqs[freqs < 0] = 0
+    # Impute silence if start time > 0
+    if times[0] > 0:
+        estimated_hop = np.median(np.diff(times))
+        prev_time = max(times[0] - estimated_hop, 0)
+        times = np.insert(times, 0, prev_time)
+        freqs = np.insert(freqs, 0, 0)
+
+
+    logging.info('Generating wave...')
+    signal = []
+
+    translen = 0.010 # duration (in seconds) for fade in/out and freq interp
+    phase = np.zeros(nHarmonics) # start phase for all harmonics
+    f_prev = 0 # previous frequency
+    t_prev = 0 # previous timestamp
+    for t, f in zip(times, freqs):
+
+        # Compute number of samples to synthesize
+        nsamples = np.round((t - t_prev) * fs)
+
+        if nsamples > 0:
+            # calculate transition length (in samples)
+            translen_sm = float(min(np.round(translen*fs), nsamples))
+
+            # Generate frequency series
+            freq_series = np.ones(nsamples) * f_prev
+
+            # Interpolate between non-zero frequencies
+            if f_prev > 0 and f > 0:
+                freq_series += np.minimum(np.arange(nsamples)/translen_sm, 1) *\
+                               (f - f_prev)
+            elif f > 0:
+                freq_series = np.ones(nsamples) * f
+
+            # Repeat for each harmonic
+            samples = np.zeros(nsamples)
+            for h in range(nHarmonics):
+                # Determine harmonic num (h+1 for sawtooth, 2h+1 for square)
+                hnum = 2*h+1 if square else h+1
+                # Compute the phase of each sample
+                phasors = 2 * np.pi * (hnum) * freq_series / float(fs)
+                phases = phase[h] + np.cumsum(phasors)
+                # Compute sample values and add
+                samples += np.sin(phases) / (hnum)
+                # Update phase
+                phase[h] = phases[-1]
+
+            # Fade in/out and silence
+            if f_prev == 0 and f > 0:
+                samples *= np.minimum(np.arange(nsamples)/translen_sm, 1)
+            if f_prev > 0 and f == 0:
+                samples *= np.maximum(1 - (np.arange(nsamples)/translen_sm), 0)
+            if f_prev == 0 and f == 0:
+                samples *= 0
+
+            # Append samples
+            signal.extend(samples)
+
+        t_prev = t
+        f_prev = f
+
+    # Normalize signal
+    signal = np.asarray(signal)
+    signal *= 0.8 / float(np.max(signal))
+
+    logging.info('Saving wav file...')
+    wavwrite(np.asarray(signal), outputfile, fs)
 
 
 if __name__ == "__main__":
@@ -398,3 +514,4 @@ if __name__ == "__main__":
         else:
             melosynth(args.inputfile, args.output, args.fs, args.nHarmonics,
                       args.square, args.useneg)
+                
