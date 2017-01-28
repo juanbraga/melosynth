@@ -1,3 +1,4 @@
 *.pyc
 .spyderproject
-test/*
+*.wav
+*.csv
