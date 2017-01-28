@@ -422,6 +422,7 @@ def melosynth_pitch(freqs, outputfile, fs, nHarmonics, square, useneg):
 
         # Compute number of samples to synthesize
         nsamples = np.round((t - t_prev) * fs)
+        nsamples = nsamples.astype('int16')
 
         if nsamples > 0:
             # calculate transition length (in samples)
