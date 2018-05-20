@@ -355,7 +355,7 @@ def melosynth(inputfile, outputfile, fs, nHarmonics, square, useneg):
     logging.info('Saving wav file...')
     wavwrite(np.asarray(signal), outputfile, fs)
     
-def melosynth_pitch(freqs, outputfile, fs, nHarmonics, square, useneg):
+def melosynth_pitch(freqs, times, outputfile, fs, nHarmonics, square, useneg):
     '''
     Synthesize array with audio samples into a .wav
 
@@ -395,8 +395,8 @@ def melosynth_pitch(freqs, outputfile, fs, nHarmonics, square, useneg):
 
     # Load pitch sequence
     logging.info('Loading data...')
-    times = 8 * 128/44100.0 + np.arange(len(freqs)) * (128/44100.0)
-#    times = np.arange(len(freqs)) * (2048/44100.0)    
+#    times = 8 * 128/44100.0 + np.arange(len(freqs)) * (128/44100.0)
+#    times = np.arange(len(freqs)) * (512/44100.0)    
     
     # Preprocess pitch sequence
     if useneg:
@@ -421,7 +421,7 @@ def melosynth_pitch(freqs, outputfile, fs, nHarmonics, square, useneg):
     for t, f in zip(times, freqs):
 
         # Compute number of samples to synthesize
-        nsamples = np.round((t - t_prev) * fs)
+        nsamples = int(np.round((t - t_prev) * fs))
 
         if nsamples > 0:
             # calculate transition length (in samples)
