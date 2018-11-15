@@ -4,7 +4,7 @@
 """
 @file melosynth.py
 @author  Justin Salamon <www.justinsalamon.com>
-@version 0.1
+@version 0.1.1
 
 @section DESCRIPTION
 
@@ -109,6 +109,9 @@ import argparse, os, wave, logging, glob
 import numpy as np
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
+short_version = '0.1'
+version = '0.1.1'
+
 
 def wavwrite(x, filename, fs=44100, N=16):
     '''
@@ -132,10 +135,10 @@ def wavwrite(x, filename, fs=44100, N=16):
     maxVol = 2**15-1.0 # maximum amplitude
     x = x * maxVol # scale x
     # convert x to string format expected by wave
-    signal = "".join((wave.struct.pack('h', item) for item in x))
+    signal = b"".join((wave.struct.pack('h', int(item)) for item in x))
     wv = wave.open(filename, 'w')
     nchannels = 1
-    sampwidth = N / 8 # in bytes
+    sampwidth = int(N / 8) # in bytes
     framerate = fs
     nframe = 0 # no limit
     comptype = 'NONE'
@@ -305,7 +308,7 @@ def melosynth(inputfile, outputfile, fs, nHarmonics, square, useneg):
     for t, f in zip(times, freqs):
 
         # Compute number of samples to synthesize
-        nsamples = np.round((t - t_prev) * fs)
+        nsamples = int(np.round((t - t_prev) * fs))
 
         if nsamples > 0:
             # calculate transition length (in samples)
@@ -476,7 +479,8 @@ def melosynth_pitch(freqs, times, outputfile, fs, nHarmonics, square, useneg):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Synthesize pitch sequence.")
+    parser = argparse.ArgumentParser(description="Melosynth {}. Synthesize "
+                        "a pitch sequence.".format(version))
     parser.add_argument("inputfile", help="Path to input file containing the "
                         "pitch sequence")
     parser.add_argument("--output", help="Path to output wav file. If "
